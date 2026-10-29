@@ -9,7 +9,12 @@ and REST API** (no application UI yet); the README is the product spec.
 docker compose -f docker-compose.base44.yml up -d
 ```
 
-- `db` (postgres:16-alpine) → `migrate` (one-shot) → `seed` (one-shot) → `api`.
+- Only two services: `db` (postgres:16-alpine) and `api`. The API container runs
+  `scripts.migrate` then `scripts.seed` at startup, before uvicorn binds, so the
+  stack has no one-shot containers left in an "exited" state (the platform
+  validator treats any exited app service as a failure). Both steps are
+  idempotent: a restart logs "database schema is up to date" and "demo company
+  already present" and touches no data.
 - `api` runs `uvicorn --reload` from the bind-mounted `./backend`, listening on
   host port **3000**. Dependencies are pinned in `backend/requirements.txt` and
   installed at container start, so a dependency change needs
@@ -51,8 +56,8 @@ PY'
 
 ## Seed data
 
-`backend/scripts/seed.py` runs on every `up` and is idempotent (keyed on the demo
-company name "SARL Demo Comptabilité"). It creates the company with the full SCF
+`backend/scripts/seed.py` runs at API startup (every container start) and is
+idempotent (keyed on the demo company name "SARL Demo Comptabilité"). It creates the company with the full SCF
 chart + journals, two partners, two products, one sale and one purchase invoice
 (both confirmed with generated entries) and a draft G50.
 
